@@ -77,7 +77,7 @@
 
 (defun find-threshold (start end val)
   0.5)
+(princ "csv-tools.lsp loaded successfully.\n")
+(setq *csv-tools-loaded* t)
 					; (if (= start end)
     ;  start (/ (- val start) (- end start))))
-
-(create-grid)
