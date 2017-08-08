@@ -26,18 +26,20 @@
 	(setq starty (fix (/ (getint "Enter the last three digits of the northmost y coordinate\n") gap)))
 	(setq lasty  (fix (/ (getint "Enter the last three digits of the southmost y coordinate\n") gap)))
 	(setq valscale (getreal "Enter y scale\n"))
-	(setq first-point (list 0 (get-nmth fname startx starty)))
+	(setq val (get-nmth fname startx starty))
+	(setq first-point (list 0 val 0))
+	(make-profile-text first-point (list (car first-point) (+ (cadr first-point) (* valscale -1000)) 0) val)
 	(setq current first-point)
-	(setq y starty)
-	(while (> y lasty)
+	(setq y (- starty 1))
+	(while (>= y lasty)
 	  (setq prev current)
 	  (setq val (get-nmth fname startx y))                    ;xscale is incorrect
 	  (if (> val -9000)
 	      (progn
-		(setq current (list (* 1000 gap y) (* 1000 valscale val) 0))
-		(make-profile-text (list (car current) (+ (cadr first-point) (* valscale -1000)) 0) val)
+		(setq current (list (* 1000 gap (- starty y)) (* 1000 valscale val) 0))
+		(make-profile-text first-point (list (car current) (+ (cadr first-point) (* valscale -1000)) 0) val)
 		(plot-line prev current)))
-	  (setq y (+ y 1))))
+	  (setq y (- y 1))))
 	  
 					;(while (not gradient)
 					;  (setq tmp (read (getstring ("Enter direction gradient of the profile (as a whole number), N (north) or S (south)"))))
@@ -45,7 +47,6 @@
 					;	(setq gradient tmp))
     (progn
       (setq starty (fix (/ (getint "Enter the last three digits of the westmost y coordinate\n") gap)))
-
       ;(while (not grad)
 ;	(setq tmp (read (getstring "Enter the desired gradient\n")))
 ;	(if (= (type tmp) (type 1))
@@ -63,30 +64,35 @@
 	  (progn
 	    (setq x (+ 1 startx))
 	    (setq xscale (expt (+ 1 (expt grad 2)) 0.5))
-	    (setq first-point (list (* 1000 startx xscale) (* 1000 valscale (get-nmth fname startx starty)) 0))
+	    (setq val (get-nmth fname startx starty))
+	    (setq first-point (list (* 1000 gap startx xscale) (* 1000 valscale val) 0))
+	    (make-profile-text first-point (list (car first-point) (+ (cadr first-point) (* valscale -1500)) 0) val)
 	    (setq current first-point)
-	    (while (< x lastx)
-	      (setq val (get-nmth fname x (+ starty (* grad x))))	      (setq prev current)
+	    (while (<= x lastx)
+	      (setq val (get-nmth fname x (+ starty (* grad (- x startx)))))
+	      (setq prev current)
 	      (if (not (< val -9000))     ;nodata value	      
 		  (progn
-		    (setq current (list (* 1000 x xscale) (* 1000 valscale val) 0))
+		    (setq current (list (* 1000 x xscale gap) (* 1000 valscale val) 0))
 		    (plot-line prev current)
-		    (make-profile-text (list (car current) (+ (cadr first-point) (* valscale -1000)) 0) val)))
+		    (make-profile-text first-point (list (car current) (+ (cadr first-point) (* valscale -1500)) 0) val)))
 	      (setq x (+ x 1))))
 	(progn
-	  (setq x (+ 1 startx))
+	  (setq x startx)
 	  (setq y (if (>= grad 0) (+ starty 1) (- starty 1)))
 	  (setq yscale (expt (+ 1 (expt grad 2)) 0.5))
-	  (setq first-point (list (* 1000 starty yscale (if (< 0 grad) 1 -1)) (* 1000 valscale (get-nmth fname startx starty)) 0))
+	  (setq val (get-nmth fname startx starty))
+	  (setq first-point (list (* 1000 gap starty yscale (if (< 0 grad) 1 -1)) (* 1000 valscale val) 0))
 	  (setq current first-point)
-	  (while (and (> x startx) (< x lastx))
+	  (make-profile-text first-point (list (car first-point) (+ (cadr first-point) (* valscale -1000)) 0) val) 
+	  (while  (<= x lastx)
 	    (setq x (+ x (abs grad)))
 	    (setq val (get-nmth fname x y))
 	    (if (not (< val -9000))
 		(progn
 		  (setq prev current)
-		  (setq current (list (* 1000 (if (>= grad 0) y (* -1 y)) yscale) (* valscale 1000 val) 0))
-		  (make-profile-text (list (car current) (+ (cadr first-point) (* valscale -1000)) 0) val)
+		  (setq current (list (* 1000 gap (if (>= grad 0) y (* -1 y)) yscale) (* valscale 1000 val) 0))
+		  (make-profile-text first-point (list (car current) (+ (cadr first-point) (* valscale -1000)) 0) val)
 		  (plot-line prev current)))
 	    (setq y (+ y (if (> grad 0) 1 -1))))))))))
 
@@ -94,13 +100,17 @@
   (progn (setq fin (open fname "r"))
 	 (if (not fin)
 	     (progn
-	       (princ "Couldn't open file ") (princ filename) (princ ". Try reopening the drawing.\n")   ;This happens after lots of file IO
+	       (princ "Couldn't open file ")
+	       (princ filename)
+	       (princ ". Try reopening the drawing.\n")   ;This happens after lots of file IO
 	       (exit)))
-	 (repeat (- (/ 1000 gap) y -6)
+	 (repeat (fix (- (/ 1000 gap) y -5))
 		  (read-line fin))
 	 (nth (+ 1 x) (str-lst (read-line fin) " "))))
 
-(defun make-profile-text (pos val)
+(defun make-profile-text (start pos val / chainage text-pt)
+  (setq chainage (/ (- (car pos) (car start)) 1000))
+  (setq text-pt (list (car pos) (- (cadr pos) 2500) (caddr pos)))
   (entmake 
    (list                     
     '(000 . "TEXT")
@@ -108,5 +118,17 @@
     '(40 . 500) ; text height
     '(50 . 1.57)  ;Angle is in radians
     (cons 10 pos)
-    (cons 001 (rtos val)))))
+    (cons 001 (rtos val 2 3))))
+  (entmake
+   (list
+    '(000 . "TEXT")
+    '(100 . "AcDbMText")
+    '(40 . 500)
+    '(50 . 1.56)
+    '(72 . 2)
+    (cons 11  text-pt)
+    (cons 10  text-pt)
+    (cons 001 (strcat (rtos chainage 2 1) (if (= chainage (fix chainage)) ".0" ""))))))
+	   
 (draw-profile)
+(princ "Done.")
